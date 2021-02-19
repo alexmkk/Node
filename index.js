@@ -4,16 +4,28 @@ const exphbs = require('express-handlebars') // для генерации авт
 const {allowInsecurePrototypeAccess} = require('@handlebars/allow-prototype-access')
 const mongoose = require('mongoose')
 const path = require('path')
-const User = require('./models/user')
+const session = require('express-session')
+const MongoStore = require('connect-mongodb-session')(session) // связь сессий с бд // возвращает класс
+const csrf = require('csurf') // csrf защита приложения
+const flash = require('connect-flash') // передача ошибок в формах через сессии
+
+const varMiddleware = require('./middleware/variables')
+const userMiddleware = require('./middleware/user')
 
 const app = express()
-
+const MONGODB_URI = 'mongodb://localhost:27017/node-course?readPreference=primary&appname=MongoDB%20Compass&ssl=false'
 // routers
 const homeRoutes = require('./routes/home')
 const addRoutes = require('./routes/add')
 const coursesRoutes = require('./routes/courses')
 const cardRoutes = require('./routes/card')
 const ordersRoutes = require('./routes/orders')
+const authRoutes = require('./routes/auth')
+
+const store = new MongoStore({
+  collection: 'sessions',
+  uri: MONGODB_URI
+})
 
 app.engine('hbs', exphbs({
   defaultLayout: 'main',
@@ -21,47 +33,40 @@ app.engine('hbs', exphbs({
   handlebars: allowInsecurePrototypeAccess(Handlebars)
 }))
 
-app.set('view engine', 'hbs') // используем его
+app.set('view engine', 'hbs')
 app.set('views', 'views') // папка с html
-
-app.use(async (req, res, next) => { // свой middleware
-  try {
-    const user = await User.findById('602d0a9ac59ea1387c93f85a')
-    req.user = user
-    next() // для возможности дальнейшего вызова app.use
-  } catch (e) {
-    console.log(e)
-  }
-})
 
 app.use(express.static(path.join(__dirname, 'public')))
 app.use(express.urlencoded({extended: false}))
+app.use(session({
+  secret: 'some secret value',
+  resave: false,
+  saveUninitialized: false,
+  store
+}))
+app.use(csrf())
+app.use(flash())
+app.use(varMiddleware)
+app.use(userMiddleware)
+
 app.use('/', homeRoutes)
 app.use('/add', addRoutes)
 app.use('/courses', coursesRoutes)
 app.use('/card', cardRoutes)
 app.use('/orders', ordersRoutes)
+app.use('/auth', authRoutes)
+
 
 const PORT = process.env.PORT || 3001
 
 async function start() {
   try {
-    const url = 'mongodb://localhost:27017/node-course?readPreference=primary&appname=MongoDB%20Compass&ssl=false'
-    
-    await mongoose.connect(url, {
+    await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       useFindAndModify: false
     })
-    const candidate = await User.findOne() // проверяем есть ли в БД хоть 1 пользователь
-    if (!candidate) {
-      const user = new User({
-        email: 'asmkk@mail.ru',
-        name: 'Alex',
-        cart: {items:[]}
-      })
-      await user.save()
-    }
+    
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     })
