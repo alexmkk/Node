@@ -13,7 +13,7 @@ const varMiddleware = require('./middleware/variables')
 const userMiddleware = require('./middleware/user')
 
 const app = express()
-const MONGODB_URI = 'mongodb://localhost:27017/node-course?readPreference=primary&appname=MongoDB%20Compass&ssl=false'
+
 // routers
 const homeRoutes = require('./routes/home')
 const addRoutes = require('./routes/add')
@@ -22,15 +22,20 @@ const cardRoutes = require('./routes/card')
 const ordersRoutes = require('./routes/orders')
 const authRoutes = require('./routes/auth')
 
+const keys = require('./keys')
+
+const PORT = process.env.PORT || 3001
+
 const store = new MongoStore({
   collection: 'sessions',
-  uri: MONGODB_URI
+  uri: keys.MONGODB_URI
 })
 
 app.engine('hbs', exphbs({
   defaultLayout: 'main',
   extname: 'hbs',
-  handlebars: allowInsecurePrototypeAccess(Handlebars)
+  handlebars: allowInsecurePrototypeAccess(Handlebars),
+  helpers: require('./utils/hbs-helpers') // для задания новый функций для handlebars
 }))
 
 app.set('view engine', 'hbs')
@@ -39,7 +44,7 @@ app.set('views', 'views') // папка с html
 app.use(express.static(path.join(__dirname, 'public')))
 app.use(express.urlencoded({extended: false}))
 app.use(session({
-  secret: 'some secret value',
+  secret: keys.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   store
@@ -57,11 +62,9 @@ app.use('/orders', ordersRoutes)
 app.use('/auth', authRoutes)
 
 
-const PORT = process.env.PORT || 3001
-
 async function start() {
   try {
-    await mongoose.connect(MONGODB_URI, {
+    await mongoose.connect(keys.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       useFindAndModify: false
