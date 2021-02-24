@@ -8,6 +8,8 @@ const session = require('express-session')
 const MongoStore = require('connect-mongodb-session')(session) // связь сессий с бд // возвращает класс
 const csrf = require('csurf') // csrf защита приложения
 const flash = require('connect-flash') // передача ошибок в формах через сессии
+const helmet = require('helmet')
+const compression = require('compression')
 
 const varMiddleware = require('./middleware/variables')
 const userMiddleware = require('./middleware/user')
@@ -59,6 +61,18 @@ app.use(fileMiddleware.single('avatar')) // single - 1 файл, avatar - наз
 
 app.use(csrf())
 app.use(flash())
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "script-src": ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com"],
+        "img-src" : ["'self'", 'https://upload.wikimedia.org/', 'data:'],
+      },
+    },
+  })
+)
+app.use(compression())
 app.use(varMiddleware)
 app.use(userMiddleware)
 
