@@ -2,7 +2,7 @@ const { Router } = require('express')
 const router = Router()
 const bcrypt = require('bcryptjs') // шифрование пароля
 const User = require('../models/user')
-const { registerValidators } = require('../utils/validators')
+const { registerValidators, loginValidators } = require('../utils/validators')
 const { validationResult } = require('express-validator/check')
 
 router.get('/login', (req, res) => {
@@ -20,10 +20,18 @@ router.get('/logout', async (req, res) => {
   })
 })
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginValidators, async (req, res) => {
   try {
     const { email, password } = req.body
     const candidate = await User.findOne({ email }) // при авторизации ищем пользователя по email
+
+    const errors = validationResult(req)
+
+    if (!errors.isEmpty()) { // если есть ошибки при валидации
+
+      req.flash('loginError', errors.errors[0].msg)
+      return res.status(422).redirect('/auth/login#login') // возвращаем статус ошибки
+    }
 
     if (candidate) {
       const areSame = await bcrypt.compare(password, candidate.password) // проверяем пароль из формы с паролем из бд

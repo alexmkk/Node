@@ -1,5 +1,9 @@
 <h1>Редактировать курс {{course.title}}</h1>
 
+{{#if errors}}
+<p class="alert">{{errors}}</p>
+{{/if}}
+
 <form action="/courses/edit" method="POST" class="course-form">
    <div class="input-field">
       <input
